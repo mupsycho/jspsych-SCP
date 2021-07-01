@@ -27,7 +27,7 @@
     <script src="../assets/jspsych-psychophysics/jspsych-psychophysics.js"></script>
     <script src="../assets/jspsych/plugins/jspsych-call-function.js"></script>
     <script src="../assets/jspsych/plugins/jspsych-html-keyboard-response.js"></script>
-    
+
     <script src="index.js"></script>
     <script src="utils.js"></script>
     <script src="../assets/js/jquery.js"></script>
@@ -331,14 +331,12 @@
             data.trial = trialNum;
             data.round = trialInfo["round"];
             data.save = true;
-            // DDM
-            data.subj_idx = info["index"];
-            data.response = data.acc;
             // reaction & Acc
             data.rt = data.rt;
             data.acc = ((answer[0] === data.key_press && data.condition === "match") || (answer[1] === data.key_press && data.condition === "mismatch")) ? 1 : 0;
-
-
+            // DDM
+            data.subj_idx = info["index"];
+            data.response = data.acc;
             $(document).unbind("touchstart", touch);
         },
         on_load: function () {
@@ -349,9 +347,9 @@
     mupsyStart(timeline, {}, function () {
         document.exitFullscreen();
         let data = jsPsych.data.get().filter({ save: true }).addToAll(info).filterColumns(["index",
-        "subj_idx", "Name", "Sex", "BirthYear", "Education", "PhoneNumber", "shapeFileName", "shape", 
-        "shapeEn", "shapeName", "shapeNameEn", "misNum", "correctResp", "subjResp", "series", "condition", 
-        "block", "blockType", "trial", "response", "acc", "rt", "time_elapsed"]).csv();
+            "subj_idx", "Name", "Sex", "BirthYear", "Education", "PhoneNumber", "shapeFileName", "shape",
+            "shapeEn", "shapeName", "shapeNameEn", "misNum", "correctResp", "subjResp", "series", "condition",
+            "block", "blockType", "trial", "response", "acc", "rt", "time_elapsed"]).csv();
         return {
             save: false,
             id: info["index"] + "_" + version + "_day" + parseInt(info["series"] + 1),
