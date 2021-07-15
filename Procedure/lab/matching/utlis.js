@@ -1,3 +1,5 @@
+
+
 function getGcd(a, b) {
     let max = Math.max(a, b);
     let min = Math.min(a, b);
@@ -76,7 +78,8 @@ function com(img = [], wordArr = [], r = []) {
             let a = [];
             for (let i = 0; i < v; i++) { 
                 if (!t.length) t = jsPsych.utils.deepCopy(wordArr);
-                let s = t.splice(Math.floor(Math.random() * t.length), 1)[0];
+                // let s = t.splice(Math.floor(Math.random() * t.length), 1)[0];
+                let s = jsPsych.utils.deepCopy(t[i]);
                 img.forEach(c => {
                     a.push({
                         img: c,

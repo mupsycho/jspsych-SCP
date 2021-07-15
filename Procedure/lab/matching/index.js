@@ -13,9 +13,9 @@ $("body").css({
 
 document.title = "termPaper";
 let timeline = [];
-let version = "v1"; // 版本号
+let version = "v4"; // 版本号
 let info = {}; // 被试信息
-let subjectID = "Mupsy01"; // 本次实验ID
+let subjectID = "sv02"; // 本次实验ID
 let recepetion = 8; // 循环次数
 // 8 * 48 = 384
 let formNum = 96; // 单个block所包含的试次总数
@@ -43,6 +43,16 @@ let wordEn = {
 }; // 结尾保持英文用
 let mismatch = [1, 2, 3]; // 不匹配 任务数量
 
+if(jsPsych.data.urlVariables().debug) { 
+    pracAcc = 0;
+    version = "t4";
+    recepetion = 1; // 循环次数
+    // 8 * 48 = 384
+    formNum = 12; // 单个block所包含的试次总数
+    pracNum = 5; // 练习数量
+}
+
+
 let sort = jsPsych.utils.permutation(mismatch, 3); // 三种条件随机
 var answers = order(["m", "n"]); // 按键随机
 let trialInfo = { round: 0 }; // 不知道什么用，估计可以删了
@@ -50,6 +60,7 @@ let blockNum = 0, trialNum = 0;
 sessionStorage.clear();
 sessionStorage.setItem("errorPrac", 0); // 判断是否练习错误
 sessionStorage.setItem("type", "");
+sessionStorage.setItem("donePrac", 0);
 let rsaen = new JSEncrypt();
 rsaen.setPublicKey("-----BEGIN PUBLIC KEY-----\
         MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDNdLca2Flu2IMjesyyHkMqC/6C\
@@ -98,7 +109,7 @@ timeline.push(
 }, info_get(subjectID, [{
     type: "survey-html-form",
     preamble: "<p style =' color : white'>你的手机号是</p>",
-    html: "<p><input name='Q0' type='text' value='' required /></p>",
+    html: "<p><input name='Q0' type='text' value='' maxlength='11' required /></p>",
     button_label: "继续",
     on_load: function () {
         $('#jspsych-survey-html-form-next').attr("disabled", "disabled");
@@ -146,8 +157,8 @@ timeline.push(
                         stimulus: "<p class='head'>注意，错误次数过多，请你仔细记住下面的联结:</p>" + getMatchWord(sti.match) + "<p class='footer'>然后你会需要回答一些问题，准备好了请点击 继续 </p>",
                         choices: ["继续"],
                         on_finish: function () {
-                            block += 1;
-                            trila = 0;
+                            blockNum += 1;
+                            trialNum = 0;
                             sessionStorage.setItem("errorStudy", 0);
                         }
                     }],
@@ -161,11 +172,14 @@ timeline.push(
                 }, {
                     type: "html-button-response",
                     stimulus: function () {
-                        return "<p class='content' style='margin-block: 50px'>请问，<img src='" + jsPsych.timelineVariable("img", true) + "' >这张图片对应的人物标签是？</p>";
+                        return "<p class='content'><img src='" + jsPsych.timelineVariable("img", true) + "' ></p><p class='content' style='margin-block: 50px'>+</p>";
                     },
                     choices: title["tag"],
+                    on_load: function() { 
+                        $("#jspsych-content").append("<p class='content' style='margin-block: 50px'>选择与图形对应的人物标签</p>")
+                    },
                     on_finish: function (data) {
-                        trial += 1;
+                        trialNum += 1;
                         data.blockType = "study";
                         data.block = blockNum;
                         data.trial = trialNum;
@@ -181,11 +195,40 @@ timeline.push(
                         data.save = true;
                         // console.log(tags[data.response], jsPsych.timelineVariable("word", true));
                     }
+                }, {
+                    timeline: [{
+                        type: "html-button-response",
+                        stimulus: function() {
+                            let data = jsPsych.data.get().filter({ blockType: "study" }).last(sti.match.length * 5);
+                            let acc = data.select("acc").mean();
+                            let rt = data.select("rt").mean();
+                            return `<p>你的正确率为：${acc * 100}%</p>
+                            <p>接下来是休息时间，当你结束休息后，你可以点击 结束休息 按钮或者按 空格键 继续</p>`
+                        },
+                        choices: ["结束休息"],
+                        on_load: function() {
+                            $(document.body).keypress(function(a){ 
+                                if(a.originalEvent.key == " ") { 
+                                    $(".jspsych-html-button-response-button").click()
+                                }
+                            });
+                        },
+                        on_finish: function() {
+                            $(document.body).unbind();
+                        }
+                    }],
+                    conditional_function: function () {
+                        if (trialNum == sti.match.length * 5) {
+                            return true
+                        } else {
+                            return false
+                        }
+                    }
                 }],
                 timeline_variables: jsPsych.randomization.repeat(sti.match, 5),
                 loop_function: function () {
-                    let data = jsPsych.data.get().filter({ style: "study" }).last(sti.match.length * 5).select("acc").mean();
-                    if (data && data > pracAcc) {
+                    let data = jsPsych.data.get().filter({ blockType: "study" }).last(sti.match.length * 5).select("acc").mean();
+                    if (data >= pracAcc) {
                         sessionStorage.setItem("errorStudy", 0);
                         return false;
                     } else {
@@ -200,7 +243,7 @@ timeline.push(
 
         typeSort.forEach(v => {
             let exp = exp_process(sti, v - 1);
-            load.plugins(exp);
+            // load.plugins(exp);
             jsPsych.addNodeToEndOfTimeline({
                 timeline: exp
             });
@@ -223,9 +266,7 @@ let trial = {
             show_end_time: 1100// ms after the start of the trial
         }, {
             obj_type: 'image',
-            file: function () {
-                return jsPsych.timelineVariable("img", true);
-            },
+            file: jsPsych.timelineVariable("img"),
             startX: "center", // location of the cross's center in the canvas
             startY: function () {
                 return $(document).outerHeight() / 2 - 128 * 0.8 - 50;
@@ -239,18 +280,17 @@ let trial = {
             startY: function () {
                 return $(document).outerHeight() / 2 + 100;
             },
-            content: function () {
-                return jsPsych.timelineVariable("word", true);
-            },
+            content: jsPsych.timelineVariable("word"),
             font: (50).toString() + "px 'Arial'",
             text_color: 'white',
             show_start_time: 1000, // ms after the start of the trial
             show_end_time: 1100
         }
     ],
-    choices: function () {
-        return answers[parseInt(info["index"].replace(subjectID, "")) % answers.length];
-    }, // 0 always is match condition
+    // choices: function () {
+    //     return answers[parseInt(info["index"].replace(subjectID, "")) % answers.length];
+    // }, // 0 always is match condition
+    choices: jsPsych.ALL_KEYS,
     response_start_time: 1000,
     trial_duration: function () {
         if (sessionStorage.getItem("type") == "prac") {
@@ -261,6 +301,7 @@ let trial = {
     }, // 刺激呈现时间
     background_color: "grey", // 背景灰色
     on_finish: function (data) {
+        trialNum += 1;
         trialInfo["round"] = trialInfo["round"] ? trialInfo["round"] + 1 : 1;
         let answer = answers[parseInt(info["index"].replace(subjectID, "")) % answers.length];
         // trial information
@@ -271,7 +312,7 @@ let trial = {
         if (info["series"] == 0) {
             // 第一天 图形和名称
             data.shapeName = jsPsych.timelineVariable("word", true);
-            data.shapeNameEn = jsPsych.timelineVariable("word", true);
+            data.shapeNameEn = wordEn[jsPsych.timelineVariable("word", true)];
         } else {
             // 第二天 图形和人物
             data.characterName = jsPsych.timelineVariable("word", true);
@@ -286,12 +327,12 @@ let trial = {
         data.trial = trialNum;
         data.round = trialInfo["round"];
         data.save = true;
-        // DDM
-        data.subj_idx = info["index"];
-        data.response = data.acc;
         // reaction & Acc
         data.rt = data.rt;
         data.acc = ((answer[0] === data.key_press && data.condition === "match") || (answer[1] === data.key_press && data.condition === "mismatch")) ? 1 : 0;
+        // DDM
+        data.subj_idx = info["index"];
+        data.response = data.acc;
 
 
         $(document).unbind("touchstart", touch);
@@ -305,15 +346,17 @@ mupsyStart(timeline, {}, function () {
     document.exitFullscreen();
     let p = ["response_type", "key_press", "avg_frame_time", "center_x", "center_y", "trial_type", "trial_index", "internal_node_id"];
     let data = jsPsych.data.get().filter({ save: true }).addToAll(info).filterColumns((function () {
-        let a = jsPsych.data.get().filter({ save: true }).uniqueNames();
-        p.forEach(v => {
-            a.splice(a.indexOf(v), 1);
-        });
-        return a;
+        // let a = jsPsych.data.get().filter({ save: true }).uniqueNames();
+        // p.forEach(v => {
+        //     a.splice(a.indexOf(v), 1);
+        // });
+        return ["index", "subj_idx", "Name", "Sex", "BirthYear", "Education", "PhoneNumber", "shapeFileName", "shape",
+            "shapeEn", "shapeName", "shapeNameEn", "characterName", "characterNameEn", "misNum", "correctResp", "subjResp", "series", "condition",
+            "block", "blockType", "trial", "response", "acc", "rt", "time_elapsed"];
     })()).csv();
     return {
-        save: false,
-        id: info["index"] + "_" + version + "_day" + parseInt(info["series"] + 1),
+        save: true,
+        id: info["index"] + "_" + version + "_day" + (parseInt(info["series"]) + 1),
         data: data
     }
 });
